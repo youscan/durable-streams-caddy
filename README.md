@@ -104,4 +104,4 @@ tests/
 
 ## License
 
-The Durable Streams project is Apache-2.0. See [upstream](https://github.com/durable-streams/durable-streams) for the plugin and protocol licensing.
+MIT — see [`LICENSE`](./LICENSE). Matches the [upstream](https://github.com/durable-streams/durable-streams) `LICENSE` file.
