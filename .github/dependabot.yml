@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Tracks `FROM golang:<ver>` in the Dockerfile. Won't see
+  # `caddy:${CADDY_VERSION}-alpine` (ARG-substituted) — that's tracked
+  # via versions.env and either the cron workflow or manual updates.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Note: npm ecosystem (tests/package.json) is intentionally excluded.
+  # The conformance suite version must stay in lockstep with the plugin
+  # version (newer conformance tests features the plugin doesn't yet
+  # implement). Bumping it independently breaks CI. Handled manually as
+  # part of plugin bumps.

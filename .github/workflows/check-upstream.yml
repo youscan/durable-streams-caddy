@@ -1,0 +1,70 @@
+name: check-upstream
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # daily at 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-plugin-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find latest upstream plugin tag
+        id: upstream
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          latest=$(gh api repos/durable-streams/durable-streams/tags --paginate \
+            --jq '.[].name' \
+            | grep '^caddy-v' \
+            | sort -V \
+            | tail -1)
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+
+      - name: Compare with current pin
+        id: compare
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC1091
+          source versions.env
+          echo "current=$PLUGIN_VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$PLUGIN_VERSION" != "${{ steps.upstream.outputs.latest }}" && -n "${{ steps.upstream.outputs.latest }}" ]]; then
+            echo "should_bump=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_bump=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump versions.env
+        if: steps.compare.outputs.should_bump == 'true'
+        run: |
+          sed -i "s|^PLUGIN_VERSION=.*|PLUGIN_VERSION=${{ steps.upstream.outputs.latest }}|" versions.env
+
+      - name: Open PR
+        if: steps.compare.outputs.should_bump == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: bump/plugin-${{ steps.upstream.outputs.latest }}
+          delete-branch: true
+          commit-message: "chore: bump plugin to ${{ steps.upstream.outputs.latest }}"
+          title: "chore: bump plugin to ${{ steps.upstream.outputs.latest }}"
+          body: |
+            Upstream cut a new plugin release: `${{ steps.upstream.outputs.latest }}`.
+
+            - Was: `${{ steps.compare.outputs.current }}`
+            - Now: `${{ steps.upstream.outputs.latest }}`
+
+            CI will run the conformance suite (currently pinned at
+            `CONFORMANCE_VERSION` in `versions.env`) against the bumped
+            plugin. If it fails — typically because the new plugin
+            release implements features tested in a newer conformance
+            suite (e.g. forking, sliding TTL, added in conformance
+            ≥ 0.3.0) — also bump `CONFORMANCE_VERSION` in `versions.env`
+            and the matching dep in `tests/package.json`, then push to
+            this branch.
