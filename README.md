@@ -1,4 +1,4 @@
-# durable-streams-caddy
+# Durable Streams · Caddy
 
 OCI images for the [Durable Streams](https://github.com/durable-streams/durable-streams) Caddy plugin. Upstream ships the plugin as a Caddy module but does not publish container images; this repo closes that gap.
 
