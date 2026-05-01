@@ -10,4 +10,7 @@
 			long_poll_timeout 500ms
 		}
 	}
+
+	@notstream not path /v1/stream/*
+	respond @notstream 404
 }

@@ -15,4 +15,10 @@
 			data_dir /data
 		}
 	}
+
+	# Anything outside /v1/stream/* gets a clean 404 instead of Caddy's
+	# implicit empty 200. `route` doesn't fall through, so this matcher
+	# only fires for non-stream paths.
+	@notstream not path /v1/stream/*
+	respond @notstream 404
 }
