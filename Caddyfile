@@ -5,6 +5,12 @@
 
 :4437 {
 	route /v1/stream/* {
+		# Extension point. Drop snippets (basicauth, headers, CORS, IP
+		# filters, request_body limits, etc.) into /etc/caddy/conf.d/*.caddy
+		# to layer them in front of the durable_streams handler.
+		# Glob with no matches is a silent no-op.
+		import /etc/caddy/conf.d/*.caddy
+
 		durable_streams {
 			data_dir /data
 		}

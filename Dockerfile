@@ -35,7 +35,7 @@ COPY Caddyfile /etc/caddy/Caddyfile
 # Run unprivileged. UID 1000 matches the k8s convention; pods should still
 # set `securityContext.fsGroup: 1000` so PVC mounts are writable, and
 # `runAsNonRoot: true` as an admission-time guard.
-RUN mkdir -p /data /config && chown -R 1000:1000 /data /config /etc/caddy
+RUN mkdir -p /data /config /etc/caddy/conf.d && chown -R 1000:1000 /data /config /etc/caddy
 USER 1000:1000
 
 EXPOSE 4437

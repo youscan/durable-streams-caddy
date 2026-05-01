@@ -1,0 +1,23 @@
+# Basic auth on every /v1/stream/* request.
+#
+# Mount this file at /etc/caddy/conf.d/basicauth.caddy in the running
+# container — the baked-in Caddyfile imports everything from that
+# directory inside the route block, in front of `durable_streams`.
+#
+# Generate the bcrypt hash with the same image:
+#
+#   docker run --rm ghcr.io/youscan/durable-streams-caddy:latest \
+#     caddy hash-password --plaintext 'your-password-here'
+#
+# Each `<user> <hash>` line is one credential.
+
+basicauth {
+	producer $2a$14$REPLACE_WITH_OUTPUT_OF_caddy_hash_password
+}
+
+# To require auth only on writes (anonymous reads, authenticated writes):
+#
+#   @writes method PUT POST DELETE
+#   basicauth @writes {
+#       producer $2a$14$...
+#   }

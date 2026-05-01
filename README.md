@@ -74,6 +74,34 @@ Plugin directives (per upstream):
 - `long_poll_timeout <duration>` — default `30s`.
 - `sse_reconnect_interval <duration>` — default `120s`.
 
+### Extending without overriding
+
+The baked Caddyfile imports any snippet at `/etc/caddy/conf.d/*.caddy` inside the route block, in front of `durable_streams`. Drop your additions there instead of replacing the whole file:
+
+```bash
+docker run --rm -p 4437:4437 \
+  -v ds-data:/data \
+  -v $(pwd)/examples/basicauth.caddy:/etc/caddy/conf.d/basicauth.caddy:ro \
+  ghcr.io/youscan/durable-streams-caddy:latest
+```
+
+Kubernetes:
+
+```yaml
+volumes:
+  - name: snippets
+    configMap:
+      name: caddy-snippets   # `kubectl create configmap caddy-snippets --from-file=basicauth.caddy=...`
+volumeMounts:
+  - name: snippets
+    mountPath: /etc/caddy/conf.d
+    readOnly: true
+```
+
+See [`examples/basicauth.caddy`](./examples/basicauth.caddy) for a working snippet (auth on all requests, with a commented variant for write-only auth). Other things that fit cleanly here: header rewrites, CORS, IP allowlists, `request_body` size limits, `encode gzip zstd` — all Caddy core directives, no image rebuild required.
+
+If you need a Caddy plugin that isn't in core (JWT auth, rate limiting, OIDC), fork this repo and add `--with github.com/...` lines to the `xcaddy build` step in the Dockerfile — the rest of the pipeline (versioning, conformance, multi-arch publish) keeps working.
+
 ## Runtime user
 
 The image runs as **UID/GID `1000:1000`** (not root). Bind-mounted host files must be readable by that UID.
