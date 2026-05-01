@@ -48,7 +48,7 @@ jobs:
 
       - name: Open PR
         if: steps.compare.outputs.should_bump == 'true'
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: bump/plugin-${{ steps.upstream.outputs.latest }}
           delete-branch: true
