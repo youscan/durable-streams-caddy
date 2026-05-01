@@ -21,6 +21,9 @@ PORT           ?= 4437
 CONTAINER      ?= ds-caddy-dev
 VOLUME         ?= ds-caddy-data
 
+TEST_PORT      ?= 14437
+TEST_CONTAINER ?= ds-caddy-test
+
 BUILD_ARGS := \
 	--build-arg DS_REF=$(PLUGIN_VERSION) \
 	--build-arg CADDY_VERSION=$(CADDY_VERSION) \
@@ -34,8 +37,8 @@ help: ## Show this help
 
 .PHONY: version
 version: ## Show pinned versions
-	@printf 'image:     %s\nplugin:    %s\ncaddy:     %s\nxcaddy:    %s\nplatforms: %s\n' \
-		'$(FULL_IMAGE)' '$(PLUGIN_VERSION)' '$(CADDY_VERSION)' '$(XCADDY_VERSION)' '$(PLATFORMS)'
+	@printf 'image:       %s\nplugin:      %s\ncaddy:       %s\nxcaddy:      %s\nconformance: %s\nplatforms:   %s\n' \
+		'$(FULL_IMAGE)' '$(PLUGIN_VERSION)' '$(CADDY_VERSION)' '$(XCADDY_VERSION)' '$(CONFORMANCE_VERSION)' '$(PLATFORMS)'
 
 .PHONY: build
 build: ## Build for the current platform
@@ -53,6 +56,23 @@ push: ## Multi-arch build and push
 smoke: build ## Verify the plugin is linked into the built image
 	docker run --rm $(FULL_IMAGE) caddy list-modules | grep -q '^http.handlers.durable_streams$$'
 	@echo "ok: http.handlers.durable_streams present"
+
+.PHONY: test
+test: build ## Run @durable-streams/server-conformance-tests against the built image
+	@trap 'docker rm -f $(TEST_CONTAINER) >/dev/null 2>&1 || true' EXIT INT TERM; \
+	docker rm -f $(TEST_CONTAINER) >/dev/null 2>&1 || true; \
+	docker run --rm -d --name $(TEST_CONTAINER) \
+		-p $(TEST_PORT):4437 \
+		-v $(CURDIR)/tests/Caddyfile.test:/etc/caddy/Caddyfile:ro \
+		$(FULL_IMAGE) >/dev/null; \
+	echo "waiting for http://localhost:$(TEST_PORT)..."; \
+	for i in $$(seq 1 50); do \
+		curl -s -o /dev/null --connect-timeout 1 http://localhost:$(TEST_PORT) && break; \
+		sleep 0.2; \
+	done; \
+	cd tests && \
+	(npm ci --silent --no-fund --no-audit 2>/dev/null || npm install --silent --no-fund --no-audit) && \
+	DS_URL=http://localhost:$(TEST_PORT) npm test --silent
 
 .PHONY: run
 run: build ## Run the container in the foreground on $(PORT)
