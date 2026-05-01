@@ -74,6 +74,26 @@ Plugin directives (per upstream):
 - `long_poll_timeout <duration>` — default `30s`.
 - `sse_reconnect_interval <duration>` — default `120s`.
 
+## Runtime user
+
+The image runs as **UID/GID `1000:1000`** (not root). Bind-mounted host files must be readable by that UID.
+
+For Kubernetes, set:
+
+```yaml
+securityContext:
+  runAsNonRoot: true   # admission guard (image already complies)
+  fsGroup: 1000        # required — chowns the PVC mount so /data is writable
+```
+
+`fsGroup` is the one you can't skip — without it, the PVC mounts as root-owned and the unprivileged process can't write to it.
+
+## Operational notes
+
+- **Single-replica only.** The bbolt-backed store is single-writer; running two replicas against a shared PVC will corrupt data. Use a `StatefulSet` with `replicas: 1` and `strategy: Recreate`.
+- **Health probes.** Plugin only handles `/v1/stream/*`; nothing else returns 200. Use a `tcpSocket` probe on port 4437.
+- **Long-poll vs ingress idle timeout.** Default `long_poll_timeout` is 30s. AKS Application Gateway and most nginx-ingress defaults idle below that. Either tune the LB up or shorten the plugin's timeout.
+
 ## Development
 
 | Target | What it does |
