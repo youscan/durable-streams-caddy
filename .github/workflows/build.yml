@@ -47,4 +47,7 @@ jobs:
 
       - name: Multi-arch build and push
         if: github.event_name != 'pull_request'
-        run: make push
+        run: |
+          short_sha="${GITHUB_SHA::7}"
+          plugin_short="${PLUGIN_VERSION#caddy-}"
+          EXTRA_TAGS="${plugin_short}-sha-${short_sha}" make push

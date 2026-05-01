@@ -19,13 +19,18 @@ PLUGIN_TAG     := $(PLUGIN_VERSION:caddy-%=%)
 TAG            ?= $(PLUGIN_TAG)
 FULL_IMAGE     := $(REGISTRY)/$(IMAGE):$(TAG)
 
+# Immutable tags injected from CI (space-separated), e.g. `v0.2.1-sha-abc1234`.
+EXTRA_TAGS     ?=
+
 # When TAG isn't overridden, also tag :latest. Overriding TAG (e.g. for PR
-# builds) keeps it single-tag so :latest doesn't get clobbered.
+# builds) keeps it single-tag so :latest doesn't get clobbered. EXTRA_TAGS
+# is always appended so CI-supplied immutable tags land regardless.
 ifeq ($(TAG),$(PLUGIN_TAG))
-IMAGE_TAGS     := -t $(FULL_IMAGE) -t $(REGISTRY)/$(IMAGE):latest
+TAG_LIST       := $(TAG) latest $(EXTRA_TAGS)
 else
-IMAGE_TAGS     := -t $(FULL_IMAGE)
+TAG_LIST       := $(TAG) $(EXTRA_TAGS)
 endif
+IMAGE_TAGS     := $(foreach t,$(TAG_LIST),-t $(REGISTRY)/$(IMAGE):$(t))
 
 PLATFORMS      ?= linux/amd64,linux/arm64
 PORT           ?= 4437
