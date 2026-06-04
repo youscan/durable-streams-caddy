@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+  issues: write
 
 jobs:
   check-plugin-tag:
@@ -41,30 +41,38 @@ jobs:
             echo "should_bump=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Bump versions.env
+      - name: Open issue
         if: steps.compare.outputs.should_bump == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: "chore: bump plugin to ${{ steps.upstream.outputs.latest }}"
+          LATEST: ${{ steps.upstream.outputs.latest }}
+          CURRENT: ${{ steps.compare.outputs.current }}
         run: |
-          sed -i "s|^PLUGIN_VERSION=.*|PLUGIN_VERSION=${{ steps.upstream.outputs.latest }}|" versions.env
+          set -euo pipefail
 
-      - name: Open PR
-        if: steps.compare.outputs.should_bump == 'true'
-        uses: peter-evans/create-pull-request@v8
-        with:
-          branch: bump/plugin-${{ steps.upstream.outputs.latest }}
-          delete-branch: true
-          commit-message: "chore: bump plugin to ${{ steps.upstream.outputs.latest }}"
-          title: "chore: bump plugin to ${{ steps.upstream.outputs.latest }}"
-          body: |
-            Upstream cut a new plugin release: `${{ steps.upstream.outputs.latest }}`.
+          # Skip if an open issue for this exact version already exists.
+          existing=$(gh issue list --state open --limit 200 --json title,number \
+            --jq 'map(select(.title==env.TITLE)) | .[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "Issue #$existing already open for $LATEST; skipping."
+            exit 0
+          fi
 
-            - Was: `${{ steps.compare.outputs.current }}`
-            - Now: `${{ steps.upstream.outputs.latest }}`
+          body=$(cat <<EOF
+          Upstream cut a new plugin release: \`$LATEST\`.
 
-            CI will run the conformance suite (currently pinned at
-            `CONFORMANCE_VERSION` in `versions.env`) against the bumped
-            plugin. If it fails — typically because the new plugin
-            release implements features tested in a newer conformance
-            suite (e.g. forking, sliding TTL, added in conformance
-            ≥ 0.3.0) — also bump `CONFORMANCE_VERSION` in `versions.env`
-            and the matching dep in `tests/package.json`, then push to
-            this branch.
+          - Current pin: \`$CURRENT\`
+          - Latest upstream: \`$LATEST\`
+
+          Bump \`PLUGIN_VERSION\` in \`versions.env\` and open a PR. CI will run
+          the conformance suite (pinned at \`CONFORMANCE_VERSION\` in
+          \`versions.env\`) against the bumped plugin. If it fails — typically
+          because the new plugin release implements features tested in a newer
+          conformance suite (e.g. forking, sliding TTL, added in conformance
+          ≥ 0.3.0) — also bump \`CONFORMANCE_VERSION\` in \`versions.env\` and
+          the matching dep in \`tests/package.json\`.
+          EOF
+          )
+
+          gh issue create --title "$TITLE" --body "$body"
