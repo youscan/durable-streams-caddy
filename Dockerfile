@@ -14,7 +14,7 @@
 
 ARG CADDY_VERSION
 
-FROM golang:1.26.3 AS builder
+FROM golang:1.26.5 AS builder
 
 ARG DS_REF
 ARG CADDY_VERSION
